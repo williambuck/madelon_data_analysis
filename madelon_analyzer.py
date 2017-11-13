@@ -9,13 +9,14 @@ from random import shuffle
 
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import roc_auc_score, confusion_matrix, roc_curve
 
 from sklearn.model_selection import GridSearchCV, ShuffleSplit, StratifiedShuffleSplit, \
                                     train_test_split, StratifiedKFold, KFold
     
 from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import Ridge, LogisticRegression, \
+from sklearn.linear_model import LinearRegression, Ridge, LogisticRegression, \
                                  LogisticRegressionCV, LassoCV, \
                                  ElasticNetCV, RidgeCV, Lasso, ElasticNet
         
@@ -26,6 +27,8 @@ from sklearn.feature_selection import SelectKBest, \
                                       f_regression
             
 from sklearn.ensemble import GradientBoostingClassifier
+
+from scipy.stats.mstats import normaltest
             
 from sklearn.pipeline import Pipeline
 from IPython.display import display
@@ -192,7 +195,7 @@ class madelon_analyzer:
 
         return results_df, select_feats
 
-    def list_top_dipped_feats(self, features, model, params, noise=False, random=False):
+    def list_top_dipped_feats(self, features, model, params, noise=False, random=False, n_feats_return=5):
         ''' This method runs the plot_top_down_feature_elimination_scores first with reverse=False, and then again
         with reverse=True. It then returns a list with the unique features from the aggregated list of features.
         
@@ -216,15 +219,17 @@ class madelon_analyzer:
                                                                                            random=True, noise=True)
                 results_df_2, select_feats_2 = self.plot_top_down_feature_elimination_scores(features, model, params, \
                                                                                            random=True, noise=True)
-                print("TOP RANDOMIZED NOISE FEATURES:", sorted(list(set(select_feats_1[:5]+select_feats_2[:5]))))
+                print("TOP RANDOMIZED NOISE FEATURES:",\
+                      sorted(list(set(select_feats_1[:n_feats_return]+select_feats_2[:n_feats_return]))))
             else:
                 results_df_1, select_feats_1 = self.plot_top_down_feature_elimination_scores(features, model, params, \
                                                                                              random=True)
                 results_df_2, select_feats_2 = self.plot_top_down_feature_elimination_scores(features, model, params, \
                                                                                              random=True)
-                print("TOP RANDOMIZED REAL FEATURES:", sorted(list(set(select_feats_1[:5]+select_feats_2[:5]))))
+                print("TOP RANDOMIZED REAL FEATURES:",\
+                      sorted(list(set(select_feats_1[:n_feats_return]+select_feats_2[:n_feats_return]))))
 
-            return sorted(list(set(select_feats_1[:5]+select_feats_2[:5])))
+            return sorted(list(set(select_feats_1[:n_feats_return]+select_feats_2[:n_feats_return])))
 
 
         else:
@@ -233,15 +238,17 @@ class madelon_analyzer:
                 reverse_results_df, reverse_select_feats = self.plot_top_down_feature_elimination_scores(features, model, \
                                                                                                          params, reverse=True,\
                                                                                                          noise=True)
-                print("TOP NOISE FEATURES:", sorted(list(set(select_feats[:5]+reverse_select_feats[:5]))))
+                print("TOP NOISE FEATURES:",\
+                      sorted(list(set(select_feats[:n_feats_return]+reverse_select_feats[:n_feats_return]))))
 
             else:
                 results_df, select_feats = self.plot_top_down_feature_elimination_scores(features, model, params)
                 reverse_results_df, reverse_select_feats = self.plot_top_down_feature_elimination_scores(features, model, \
                                                                                                        params, reverse=True)
-                print("TOP REAL FEATURES:", sorted(list(set(select_feats[:5]+reverse_select_feats[:5]))))
+                print("TOP REAL FEATURES:",\
+                      sorted(list(set(select_feats[:n_feats_return]+reverse_select_feats[:n_feats_return]))))
 
-            return sorted(list(set(select_feats[:5]+reverse_select_feats[:5])))
+            return sorted(list(set(select_feats[:n_feats_return]+reverse_select_feats[:n_feats_return])))
 
 
     def rotator_score_df_generator(self, list_of_feats, model, params):
@@ -419,3 +426,20 @@ def con_cur_to_class_db():
     
     return con, cur
     
+def test_features_for_normal(df, features):
+    
+    ss = StandardScaler()
+    
+    normals = {}
+
+    X = df[features]  
+    X_sc = ss.fit_transform(X)
+    
+    for f in features:
+
+        p = normaltest(X_sc[f]).pvalue
+        
+        if p >= 0.05:
+            normals[f] = normaltest(X_sc[f]).pvalue
+    
+    return normals.keys()
